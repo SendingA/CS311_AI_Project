@@ -1,0 +1,16 @@
+1 import numpy as np
+2 import random
+3 import time 4
+5 COLOR_BLACK=-1
+6 COLOR_WHITE=1
+7 COLOR_NONE=0
+8 random.seed(0) 9 #don't change the class name 10 class AI(object): 11 #chessboard_size, color, time_out passed from agent 12 def __init__(self, chessboard_size, color, time_out): 13 self.chessboard_size = chessboard_size 14 #You are white or black
+15 self.color = color 16 #the max time you should use, your algorithm's run time must not exceed the time limit. 17 self.time_out = time_out 18 # You need to add your decision to your candidate_list. The system will get the end of your candidate_list as your decision. 19 self.candidate_list = [] 20
+21
+22 # The input is the current chessboard. Chessboard is a numpy array. 23 def go(self, chessboard): 24 # Clear candidate_list, must do this step
+25 self.candidate_list.clear() 26 #==================================================================
+27 #Write your algorithm here 28 #Here is the simplest sample:Random decision
+29 idx = np.where(chessboard == COLOR_NONE) 30 idx = list(zip(idx[0], idx[1])) 31 #==============Find new pos========================================
+32 # Make sure that the position of your decision on the chess board is empty. 33 # If not, the system will return error. 34 # Add your decision into candidate_list, Records the chessboard
+35 # You need to add all the positions which are valid
+36 # candidate_list example: [(3,3),(4,4)] 37 # You need append your decision at the end of the candidate_list, 38 #candidate_list example: [(3,3),(4,4),(4,4)] 39 # we will pick the last element of the candidate_list as the position you choose. 40 #In above example, we will pick (4,4) as your decision. 41 # If there is no valid position, you must return an empty list.

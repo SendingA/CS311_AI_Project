@@ -1,0 +1,366 @@
+import numpy as np
+import random
+import time
+import math
+
+COLOR_BLACK = -1
+COLOR_WHITE = 1
+COLOR_NONE = 0
+infinity = math.inf
+
+
+class AI:
+    """don't change the class name"""
+
+    def __init__(self, chessboard_size, color, time_out):
+        """chessboard_size, color, time_out passed from age"""
+        self.chessboard_size = chessboard_size
+        # You are white or black
+        # self.color = color
+        self.color = 1
+        self.need_reverse = True if color == COLOR_BLACK else False
+
+        # the max time you should use, your algorithm's run time must not exceed the time limit
+        self.time_out = time_out
+        # You need to add your decision to your candidate_list. The system will get the end of your candidate_list as you decision
+        self.candidate_list = []
+        self.chessboard=[]
+
+    def go(self, chessboard):
+        """The input is the current chessboard. Chessboard is a np array"""
+        # Clear candidate_list, must do this st
+        self.candidate_list.clear()
+        # ===================================
+        # write your algorithm here
+        if self.need_reverse:
+            chessboard = -chessboard
+        self.chessboard=chessboard
+        idx = np.argwhere(chessboard == COLOR_NONE)
+        for x, y in idx:
+            if self.isValidMove(x, y, chessboard,self.color):
+                self.candidate_list.append((x, y))
+        # ============================
+        best_move=self.choose_best_move(chessboard, self.color)
+        if best_move!=None:
+            self.candidate_list.append(best_move)
+        return self.candidate_list
+
+    def isOnBoard(self, x, y):
+        return 0 <= x <= 7 and 0 <= y <= 7
+
+    def isValidMove(self, x_dst, y_dst, chessboard,color):
+        chessboard[x_dst][y_dst] = color
+        chessToFlip = []
+        otherColor=-1*color
+        for x_direction, y_direction in [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [1, 1], [-1, 1], [-1, -1]]:
+            x = x_dst
+            y = y_dst
+            x = x + x_direction
+            y = y + y_direction
+            while self.isOnBoard(x, y) and chessboard[x, y] == otherColor:
+                x = x + x_direction
+                y = y + y_direction
+            if self.isOnBoard(x, y) and chessboard[x, y] == color:
+                x = x - x_direction
+                y = y - y_direction
+                while (x, y) != (x_dst, y_dst):
+                    chessToFlip.append((x, y))
+                    x = x - x_direction
+                    y = y - y_direction
+            else:
+                continue
+        chessboard[x_dst, y_dst] = 0
+        if len(chessToFlip) == 0:
+            return False
+        else:
+            return True
+
+
+
+    def get_action(self,chessboard,color):
+        actions=[]
+        idx = np.argwhere(chessboard == COLOR_NONE)
+        for x, y in idx:
+            if self.isValidMove(x, y, chessboard, color):
+                actions.append((x,y))
+        return actions
+
+    def get_result(self,chessboard,action,color):
+        x_dst=action[0]
+        y_dst=action[1]
+        new_chessboard=np.copy(chessboard)
+        new_chessboard[action]=color
+        FilpChess=[]
+        otherColor = -1 * color
+        for x_direction, y_direction in [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [1, 1], [-1, 1], [-1, -1]]:
+            x = x_dst
+            y = y_dst
+            x = x + x_direction
+            y = y + y_direction
+            while self.isOnBoard(x, y) and new_chessboard[x, y] == otherColor:
+                x = x + x_direction
+                y = y + y_direction
+            if self.isOnBoard(x, y) and new_chessboard[x, y] == color:
+                x = x - x_direction
+                y = y - y_direction
+                while (x, y) != (x_dst, y_dst):
+                    FilpChess.append((x,y))
+                    new_chessboard[(x,y)]=color
+                    x = x - x_direction
+                    y = y - y_direction
+            else:
+                continue
+        return new_chessboard,len(FilpChess)
+
+    def game_is_terminal(self,chessboard):
+        actions1=self.get_action(chessboard,1)
+        actions2=self.get_action(chessboard,-1)
+        if len(actions1)==0 and len(actions2)==0:
+            return True
+        else:
+            return False
+
+    def count(self, chessboard, color):
+        return np.sum(chessboard == color)
+
+
+    def utility(self, board, color):
+        otherColor = -1 * color
+        win=0
+        if self.game_is_terminal(board):
+            if self.count(board, color) > self.count(board, otherColor):
+                win=color
+            elif self.count(board, color) == self.count(board, otherColor):
+                return 0
+            else:
+                win=otherColor
+        if win==color:
+            return -1000000
+        else:
+            return 1000000
+
+    # weight_map = np.array([[-1000, 80, 3, 7, 7, 3, 80, -1000],
+    #                        [80, 3, 2, 5, 5, 2, 3, 80],
+    #                        [3, 2, 6, 6, 6, 6, 2, 3],
+    #                        [7, 5, 6, 4, 4, 6, 5, 7],
+    #                        [7, 5, 6, 4, 4, 6, 5, 7],
+    #                        [3, 2, 6, 6, 6, 6, 2, 3],
+    #                        [80, 3, 2, 5, 5, 2, 3, 80],
+    #                        [-1000, 80, 3, 7, 7, 3, 80, -1000]])
+    # weight_map = np.array([[-1000,80,-3*3,-7,-7,-3*3,80,-1000],
+    #                           [80,40,-2*5,-5,-5,-2,40,80],
+    #                           [-3*3,-2*5,-8,-8,-8,-8,-2*5,-3*3],
+    #                           [-7,-5,-6,-4,-4,-6,-5*2,-7],
+    #                           [-7,-5,-6,-4,-4,-6,-5*2,-7],
+    #                           [-3*3,-2*5,-6,-6,-6,-6,-2*5,-3*3],
+    #                           [80,40,-2*5,-5,-5,-2*5,40,80],
+    #                           [-1000,80,-3*3,-7,-7,-3*3,80,-1000]])
+    weight_map = np.array([[-1000, 80, -17, -15, -15, -17 , 80, -1000],
+                           [80, 40, -2 * 5, -8, -8, -10, 40, 80],
+                           [-17, -10, -9, -6, -6, -9, -2 * 5, -17],
+                           [-15, -8, -6, -3, -3, -6, -8, -15],
+                           [-15, -8, -6, -3, -3, -6, -8, -15],
+                           [-17, -10, -9, -6, -6, -9, -10, -17],
+                           [80, 40, -2 * 5, -8, -8, -2 * 5, 40, 80],
+                           [-1000, 80, -17, -15, -15, -17, 80, -1000]])
+
+    def map_weight_sum(self,chessboard, color):
+        new_chessboard=np.copy(chessboard)
+        for x in range(self.chessboard_size):
+            for y in range(self.chessboard_size):
+                if chessboard[(x,y)]==color:
+                    new_chessboard[(x,y)]==1
+                elif chessboard[(x,y)]==-1*color:
+                    new_chessboard[(x,y)]==-1
+        return sum(sum(new_chessboard * self.weight_map))
+
+    def evaluation(self,chessboard,color,stage):
+        #value是相对稳定子的多少
+        #value6是相对行动力的大小
+        # value=0
+        # value4=len(self.get_action(chessboard,color))
+        # value5=len(self.get_action(chessboard,-color))
+        # if stage <= 9:
+        #     value6 = (value4-value5)
+        # elif stage <= 40:
+        before = (self.chessboard == color).sum()
+        after = (chessboard == color).sum()
+        flipNumber = after - before
+        value1 = sum(self.get_stable(chessboard, color))
+        value2 = sum(self.get_stable(chessboard, -color))
+        value = -3 * (value1 - value2)
+
+        #     value6 = 2*(value4-value5)
+        # else:
+        #     value6 = (value4-value5)
+        value4=len(self.get_action(chessboard,color))
+        value5=len(self.get_action(chessboard,-color))
+        if stage<=9:
+            value6=value4-value5
+            value7 = -10*flipNumber
+        elif stage<=35:
+            value6=20*(value4-value5)
+            value7 = -20 * flipNumber
+        elif stage<=45:
+            value6=10*(value4-value5)
+            value7 = -30 * flipNumber
+        else:
+            value6=10*(value4-value5)
+            value7 = -40 * flipNumber
+
+        return self.map_weight_sum(chessboard,color)+value6+value7+value
+
+    def choose_best_move(self,chessboard, color):
+        stage = (chessboard == -1).sum() + (chessboard == 1).sum()
+        if stage <= 9:
+            depth = 3
+        elif stage >= 40:
+            depth = 5
+        else:
+            depth = 3
+        # for depth in range(2,8):
+        # value, best_move =self.alphabeta_search(chessboard,depth,color,stage)
+        # self.candidate_list.append(best_move)
+
+        for i in range(2, depth + 1):
+            value, best_move = self.alphabeta_search(chessboard, i, color, stage)
+            if best_move is not None:
+                self.candidate_list.append(best_move)
+
+        return best_move
+
+
+    def alphabeta_search(self, chessboard,max_depth,color,stage):
+        otherColor=-1*color
+        def max_value(chessboard, alpha, beta,depth):
+            if self.game_is_terminal(chessboard):
+                return self.utility(chessboard, color), None
+            if depth==max_depth:
+                return self.evaluation(chessboard,color,stage),None
+            v, move = -infinity, None
+            actions=self.get_action(chessboard,color)
+            if len(actions) == 0:
+                v, _ = min_value(chessboard, alpha, beta,depth+1)
+
+            for a in actions:
+                # if a in angles:
+                #     continue
+                result,filpNumber=self.get_result(chessboard, a, color)
+                v2, _ = min_value(result, alpha, beta,depth+1)
+                # if depth == 0:
+                #     print(a, v2)
+                # TODO: update alpha, beta pruning, decide *v* and *move*
+                # if stage<=9:
+                #     v2=v2-2*filpNumber
+                # elif stage>=40:
+                #     v2=v2-4*filpNumber
+                # else:
+                #     v2=v2-3*filpNumber
+                if v < v2:
+                    v = v2
+                    move = a
+                if v >= beta:
+                    break
+                if v > alpha:
+                    alpha = v
+            return v, move
+
+        def min_value(chessboard, alpha, beta,depth):
+            # TODO: implement function min_value
+            if self.game_is_terminal(chessboard):
+                return self.utility(chessboard, color), None
+            if depth == max_depth:
+                return self.evaluation(chessboard, color,stage),None
+            v, move = infinity, None
+            actions=self.get_action(chessboard, otherColor)
+            #很重要
+            if len(actions) == 0:
+                v, _ = max_value(chessboard, alpha, beta,depth+1)
+
+            for a in actions:
+                # if a in angles:
+                #     continue
+                result,filpNumber=self.get_result(chessboard, a, otherColor)
+                v2, _ = max_value(result, alpha, beta,depth+1)
+                # TODO: update alpha, beta pruning, decide *v* and *move*
+                # if stage <= 9:
+                #     v2 = v2 - 2* filpNumber
+                # elif stage >= 40:
+                #     v2 = v2 - 4 * filpNumber
+                # else:
+                #     v2 = v2 - 3* filpNumber
+                if v > v2:
+                    v = v2
+                    move = a
+                if v <= alpha:
+                    break
+                if v < beta:
+                    beta = v
+            return v, move
+
+        return max_value(chessboard, -infinity, +infinity,0)
+
+    def get_stable(self,board, color):
+        stable = [0, 0, 0]
+        # 角, 边, 八个方向都无空格
+        cind1 = [0, 0, 7, 7]
+        cind2 = [0, 7, 7, 0]
+        inc1 = [0, 1, 0, -1]
+        inc2 = [1, 0, -1, 0]
+        stop = [0, 0, 0, 0]
+        for i in range(4):
+            if board[cind1[i]][cind2[i]] == color:
+                stop[i] = 1
+                stable[0] += 1
+                for j in range(1, 7):
+                    if board[cind1[i] + inc1[i] * j][cind2[i] + inc2[i] * j] != color:
+                        break
+                    else:
+                        stop[i] = j + 1
+                        stable[1] += 1
+        for i in range(4):
+            if board[cind1[i]][cind2[i]] == color:
+                for j in range(1, 7 - stop[i - 1]):
+                    if board[cind1[i] - inc1[i - 1] * j][cind2[i] - inc2[i - 1] * j] != color:
+                        break
+                    else:
+                        stable[1] += 1
+        colfull = np.zeros((8, 8), dtype=int)
+        colfull[:, np.sum(abs(board), axis=0) == 8] = True
+        rowfull = np.zeros((8, 8), dtype=int)
+        rowfull[np.sum(abs(board), axis=1) == 8, :] = True
+        diag1full = np.zeros((8, 8), dtype=int)
+        for i in range(15):
+            diagsum = 0
+            if i <= 7:
+                sind1 = i
+                sind2 = 0
+                jrange = i + 1
+            else:
+                sind1 = 7
+                sind2 = i - 7
+                jrange = 15 - i
+            for j in range(jrange):
+                diagsum += abs(board[sind1 - j][sind2 + j])
+            if diagsum == jrange:
+                for k in range(jrange):
+                    diag1full[sind1 - j][sind2 + j] = True
+        diag2full = np.zeros((8, 8), dtype=int)
+        for i in range(15):
+            diagsum = 0
+            if i <= 7:
+                sind1 = i
+                sind2 = 7
+                jrange = i + 1
+            else:
+                sind1 = 7
+                sind2 = 14 - i
+                jrange = 15 - i
+            for j in range(jrange):
+                diagsum += abs(board[sind1 - j][sind2 - j])
+            if diagsum == jrange:
+                for k in range(jrange):
+                    diag2full[sind1 - j][sind2 - j] = True
+        stable[2] = sum(
+            sum(np.logical_and(np.logical_and(np.logical_and(colfull, rowfull), diag1full), diag2full)))
+        return stable
